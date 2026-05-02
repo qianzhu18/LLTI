@@ -4,13 +4,10 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
-  BarChart3,
   Download,
-  Flame,
   RefreshCcw,
   Share2,
   Sparkles,
-  Store,
 } from "lucide-react";
 import {
   darkDefects,
@@ -18,34 +15,36 @@ import {
   dimensions,
   normalTypes,
   questions,
-  seedLeads,
   typeLibrary,
 } from "./data";
 import "./styles.css";
 
 const levelNum = { L: 1, M: 2, H: 3 };
 const levelName = { L: "低", M: "中", H: "高" };
+
 const homeHooks = [
-  "先玩梗，再开果。先发卡，再成交。",
-  "你不是在做测试，你在挑今晚的开果剧本。",
-  "30 秒测完，拿到你的人格卡和第一颗推荐果。",
+  "你吃榴莲的样子，出卖了你的人格。",
+  "30 秒测出你是哪种榴莲人格，拿专属推荐品种。",
+  "测完还有人格卡可以发，今晚就开果。",
 ];
+
 const loopFlow = [
-  { title: "先玩", desc: "10 题榴莲人格测试，低门槛社交入口。" },
-  { title: "再晒", desc: "生成分享卡，带来朋友测和拼团线索。" },
-  { title: "后转化", desc: "商家拿到购买意愿、偏好和黑暗品接受度。" },
+  { title: "测", desc: "10 道趣味题，测出你的榴莲人格类型。" },
+  { title: "看", desc: "拿到专属品种推荐和开果攻略。" },
+  { title: "晒", desc: "生成人格卡，分享给朋友一起玩。" },
 ];
+
 const coachNotes = [
-  "先抓你的核心顾虑，后面的推荐会更稳。",
-  "这题在判断你对榴莲气味的真实阈值。",
+  "先抓你的核心顾虑，后面的推荐会更准。",
+  "这题在判断你对榴莲气味的真实接受度。",
   "我们在收集你对口感的偏好，不存在标准答案。",
   "预算会直接影响推荐品种和购买形式。",
   "场景决定你是独享派、送礼派还是拼团派。",
-  "这一题在判断你对黑暗品和非标果的接受度。",
-  "你的决策触发点会映射到商家的话术策略。",
-  "这里在看你的分享裂变潜力。",
+  "这一题在判断你对非标准外观榴莲的接受度。",
+  "你最容易被什么打动，后面推荐会参考这个。",
+  "这题看看你愿不愿意把结果分享出去。",
   "信任需求决定你更看重售后还是信息透明。",
-  "最后一步，确认你当前的购买意愿温度。",
+  "最后一步，确认你当前的开果意愿。",
 ];
 
 function levelFromScore(score) {
@@ -147,7 +146,7 @@ function computeResult(answers) {
 
   if (!crackTriggered && ranked[0].similarity < 58) {
     finalType = typeLibrary["ABSTRACT-H"];
-    mode = "系统兜底人格";
+    mode = "榴莲抽象派";
   }
 
   const rawIntent =
@@ -218,7 +217,7 @@ function DurianGlyph({ type }) {
   );
 }
 
-function Home({ onStart, onDashboard, onDemo }) {
+function Home({ onStart, onDemo }) {
   const hook = homeHooks[new Date().getDate() % homeHooks.length];
   const teaserTypes = ["GOLD-I", "GROUP-E", "CRACK-M"].map(
     (typeCode) => typeLibrary[typeCode],
@@ -229,11 +228,11 @@ function Home({ onStart, onDashboard, onDemo }) {
       <section className="hero-panel">
         <div className="eyebrow">
           <Sparkles size={16} />
-          SBTI 热点玩法 · 榴莲导购闭环
+          榴莲人格测试 · 测完就懂吃
         </div>
-        <h1>测测你的榴莲 SBTI</h1>
+        <h1>测测你的榴莲人格</h1>
         <p className="hero-copy">
-          先用人格测试把人留下来，再把结果变成推荐、分享和成交。前台负责趣味参与，后台沉淀购买线索。
+          10 道题测出你的榴莲口味人格，拿到专属品种推荐，生成人格卡分享给朋友。
         </p>
         <p className="hero-hook">{hook}</p>
         <div className="hero-actions">
@@ -243,22 +242,12 @@ function Home({ onStart, onDashboard, onDemo }) {
           <Button icon={Share2} variant="ghost" onClick={onDemo}>
             先看示例结果
           </Button>
-          <Button icon={BarChart3} variant="secondary" onClick={onDashboard}>
-            商家看板
-          </Button>
         </div>
         <div className="guide-strip">
           {loopFlow.map((item) => (
             <div className="guide-step" key={item.title}>
               <strong>{item.title}</strong>
               <p>{item.desc}</p>
-            </div>
-          ))}
-        </div>
-        <div className="loop-strip" aria-label="商业闭环">
-          {["社交入口", "人格测试", "AI推荐", "分享裂变", "商家转化"].map((item) => (
-            <div className="loop-step" key={item}>
-              {item}
             </div>
           ))}
         </div>
@@ -273,10 +262,10 @@ function Home({ onStart, onDashboard, onDemo }) {
       </section>
 
       <aside className="cover-panel">
-        <img src="/assets/generated-durian-card.jpg" alt="榴莲人格导购官主视觉" />
+        <img src="/assets/generated-durian-card.jpg" alt="你的榴莲人格卡" />
         <div className="cover-caption">
-          <strong>答辩表达收束</strong>
-          <span>低成本入口带来测试数据，测试数据沉淀为购买线索，购买线索反哺直播话术和黑暗品转化。</span>
+          <strong>你的榴莲人格卡</strong>
+          <span>测完就能生成专属人格卡，保存图片发朋友圈，看看朋友们都是什么人格。</span>
         </div>
       </aside>
     </main>
@@ -326,13 +315,13 @@ function TestScreen({ answers, setAnswers, onResult, onHome }) {
         </div>
       </div>
       <div className="coach-strip">
-        <span>导购教练</span>
+        <span>榴莲教练</span>
         <p>{coachNotes[index]}</p>
-        <b>{remaining === 0 ? "答完这一题就开果" : `再答 ${remaining} 题就能出结果`}</b>
+        <b>{remaining === 0 ? "答完这一题就出结果" : `再答 ${remaining} 题就能出结果`}</b>
       </div>
 
       <section className="question-card">
-        <div className="question-kicker">榴莲 SBTI 第 {index + 1} 题</div>
+        <div className="question-kicker">榴莲人格测试 第 {index + 1} 题</div>
         <h2>{question.title}</h2>
         <div className="option-list">
           {question.options.map((option, optionIndex) => (
@@ -381,7 +370,7 @@ function ShareCard({ result, cardRef }) {
   return (
     <div className="share-card" ref={cardRef} style={{ "--fruit": type.color, "--accent": type.accent }}>
       <div className="share-head">
-        <span>榴莲 SBTI</span>
+        <span>榴莲人格</span>
         <b>{type.code}</b>
       </div>
       <DurianGlyph type={type} />
@@ -408,7 +397,7 @@ function ShareCard({ result, cardRef }) {
   );
 }
 
-function ResultScreen({ result, onRestart, onDashboard, onDark }) {
+function ResultScreen({ result, onRestart }) {
   const cardRef = useRef(null);
   const [shareImage, setShareImage] = useState("");
   const [message, setMessage] = useState("");
@@ -425,7 +414,7 @@ function ResultScreen({ result, onRestart, onDashboard, onDark }) {
       });
       setShareImage(dataUrl);
       const link = document.createElement("a");
-      link.download = `${type.code}-durian-sbti.png`;
+      link.download = `${type.code}-durian-persona.png`;
       link.href = dataUrl;
       link.click();
       setMessage("分享卡已生成");
@@ -445,9 +434,6 @@ function ResultScreen({ result, onRestart, onDashboard, onDark }) {
           </div>
           <div className="match-pill">匹配度 {result.match}%</div>
         </div>
-        <p className="result-bridge">
-          玩梗不是终点，闭环才是重点：先晒卡裂变，再承接购买，再把偏好数据反哺商家选品。
-        </p>
 
         <div className="recommend-grid">
           <div className="recommend-block">
@@ -456,14 +442,14 @@ function ResultScreen({ result, onRestart, onDashboard, onDark }) {
             <p>{type.desc}</p>
           </div>
           <div className="recommend-block">
-            <span>购买形式</span>
+            <span>推荐形式</span>
             <strong>{type.form}</strong>
             <p>{type.avoid}</p>
           </div>
           <div className="recommend-block hot">
-            <span>商家信号</span>
-            <strong>{result.intentScore}/5 购买意愿</strong>
-            <p>{type.merchantSignal}</p>
+            <span>开果指数</span>
+            <strong>{result.intentScore}/5</strong>
+            <p>你当前的开果意愿强度，越高说明你越准备好今晚就吃。</p>
           </div>
         </div>
 
@@ -481,16 +467,16 @@ function ResultScreen({ result, onRestart, onDashboard, onDark }) {
           ))}
         </section>
         <section className="action-rail">
-          <h3>30 秒行动路径</h3>
+          <h3>接下来你可以</h3>
           <div>
             <p>
-              <b>1.</b> 先生成分享图，把你的 {type.name} 发到群里拉人进测试。
+              <b>1.</b> 生成分享图，把你的「{type.name}」人格卡发到群里，拉朋友一起测。
             </p>
             <p>
-              <b>2.</b> 再看商家看板，确认高意愿人群和主推品种。
+              <b>2.</b> 按推荐品种去买，{type.variety} 最适合你。
             </p>
             <p>
-              <b>3.</b> 最后打开黑暗品名片，把非标果讲清楚并转化。
+              <b>3.</b> 觉得不准？重测一次试试。
             </p>
           </div>
         </section>
@@ -498,12 +484,6 @@ function ResultScreen({ result, onRestart, onDashboard, onDark }) {
         <div className="result-actions">
           <Button icon={Download} onClick={generateShare}>
             生成分享图
-          </Button>
-          <Button icon={Flame} variant="secondary" onClick={onDark}>
-            黑暗品名片
-          </Button>
-          <Button icon={Store} variant="secondary" onClick={onDashboard}>
-            商家看板
           </Button>
           <Button icon={RefreshCcw} variant="ghost" onClick={onRestart}>
             重测
@@ -520,192 +500,6 @@ function ResultScreen({ result, onRestart, onDashboard, onDark }) {
           </a>
         ) : null}
       </aside>
-    </main>
-  );
-}
-
-function Metric({ label, value, sub }) {
-  return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <p>{sub}</p>
-    </div>
-  );
-}
-
-function MerchantDashboard({ result, onHome, onDark }) {
-  const leads = useMemo(() => {
-    return result ? [...seedLeads, result.lead] : seedLeads;
-  }, [result]);
-
-  const total = leads.length;
-  const highIntent = leads.filter((lead) => lead.intent >= 4).length;
-  const highShare = leads.filter((lead) => lead.share >= 2.5).length;
-  const highDark = leads.filter((lead) => lead.dark >= 2.5).length;
-  const typeCounts = leads.reduce((acc, lead) => {
-    const type = typeLibrary[lead.type] || typeLibrary["ABSTRACT-H"];
-    acc[type.name] = (acc[type.name] || 0) + 1;
-    return acc;
-  }, {});
-  const topTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const topVariety = leads.reduce((acc, lead) => {
-    acc[lead.variety] = (acc[lead.variety] || 0) + 1;
-    return acc;
-  }, {});
-  const bestVariety = Object.entries(topVariety).sort((a, b) => b[1] - a[1])[0]?.[0] || "泰国金枕";
-
-  const suggestionType = result?.finalType || typeLibrary["GOLD-I"];
-
-  return (
-    <main className="dashboard">
-      <div className="dashboard-head">
-        <div>
-          <div className="eyebrow">
-            <Store size={16} />
-            商家后台 Demo
-          </div>
-          <h1>把测试热闹变成购买线索</h1>
-        </div>
-        <div className="dashboard-actions">
-          <Button icon={ArrowLeft} variant="secondary" onClick={onHome}>
-            回首页
-          </Button>
-          <Button icon={Flame} onClick={onDark}>
-            生成黑暗品名片
-          </Button>
-        </div>
-      </div>
-      <section className="loop-banner" aria-label="商业闭环说明">
-        <b>低成本社交入口 → 人格卡裂变 → 购买线索沉淀 → 直播与私域转化</b>
-        <p>
-          当前样本 <strong>{total}</strong> 人，系统已把“好玩测试”收束成可执行的选品和话术建议。
-        </p>
-      </section>
-
-      <section className="metrics-grid">
-        <Metric label="测试人数" value={total} sub="含当前演示用户" />
-        <Metric label="高购买意愿" value={`${Math.round((highIntent / total) * 100)}%`} sub="可进入直播/社群承接" />
-        <Metric label="分享裂变潜力" value={`${Math.round((highShare / total) * 100)}%`} sub="适合推人格卡和拼团" />
-        <Metric label="黑暗品接受度" value={`${Math.round((highDark / total) * 100)}%`} sub="可转化非标库存" />
-      </section>
-
-      <section className="dash-grid">
-        <div className="dash-panel">
-          <h2>人格分布</h2>
-          <div className="rank-list">
-            {topTypes.map(([name, count]) => (
-              <div className="rank-row" key={name}>
-                <span>{name}</span>
-                <div className="rank-bar">
-                  <i style={{ width: `${(count / total) * 100}%` }} />
-                </div>
-                <b>{count}</b>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="dash-panel suggestion">
-          <h2>今日运营建议</h2>
-          <p>
-            当前最适合主推 <b>{bestVariety}</b>。新手和拼团用户占比较高，先用人格卡做低成本裂变，再用包熟、出肉率和直播讲解承接购买信任。
-          </p>
-          <p>
-            黑暗品接受用户需要透明风险说明，适合用“数字名片”把瑕疵、适合人群和当天食用建议一次讲清。
-          </p>
-        </div>
-
-        <div className="dash-panel script-panel">
-          <h2>直播话术</h2>
-          <div className="script-card">
-            <span>开场</span>
-            <p>{suggestionType.liveHook}</p>
-          </div>
-          <div className="script-card">
-            <span>弹幕回复</span>
-            <p>怕臭、怕夹生的朋友先选低风险款；想捡漏的朋友看黑暗品名片，缺点我们直接写明。</p>
-          </div>
-          <div className="script-card">
-            <span>促单</span>
-            <p>测完是同一人格的朋友可以一起拼，今晚开果，明天就不用继续云吃。</p>
-          </div>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function DarkProduct({ result, onBack, onDashboard }) {
-  const [defect, setDefect] = useState("crack");
-  const darkCard = buildDarkCard(result, defect);
-  const type = result?.finalType || typeLibrary["CRACK-M"];
-
-  return (
-    <main className="dark-page">
-      <div className="dashboard-head">
-        <div>
-          <div className="eyebrow">
-            <Flame size={16} />
-            黑暗品数字名片
-          </div>
-          <h1>把非标果从“卖相差”转成“讲得清”</h1>
-        </div>
-        <div className="dashboard-actions">
-          <Button icon={ArrowLeft} variant="secondary" onClick={onBack}>
-            回结果
-          </Button>
-          <Button icon={BarChart3} onClick={onDashboard}>
-            看商家数据
-          </Button>
-        </div>
-      </div>
-
-      <section className="dark-layout">
-        <div className="dark-controls">
-          <h2>选择瑕疵类型</h2>
-          <div className="segmented">
-            {darkDefects.map((item) => (
-              <button
-                className={defect === item.id ? "active" : ""}
-                key={item.id}
-                onClick={() => setDefect(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="copy-box">
-            <span>直播间可用</span>
-            <p>{darkCard.live}</p>
-          </div>
-          <div className="copy-box">
-            <span>用户匹配</span>
-            <p>{type.name} · {type.merchantSignal}</p>
-          </div>
-        </div>
-
-        <article className="dark-card" style={{ "--fruit": type.color, "--accent": type.accent }}>
-          <div className="dark-card-top">
-            <span>{darkCard.badge}</span>
-            <b>非标透明说明</b>
-          </div>
-          <DurianGlyph type={type} />
-          <h2>{darkCard.title}</h2>
-          <p className="fit">{darkCard.fit}</p>
-          <div className="dark-info">
-            <div>
-              <span>缺点</span>
-              <p>{darkCard.risk}</p>
-            </div>
-            <div>
-              <span>优点</span>
-              <p>{darkCard.upside}</p>
-            </div>
-          </div>
-          <blockquote>{darkCard.copy}</blockquote>
-        </article>
-      </section>
     </main>
   );
 }
@@ -762,28 +556,6 @@ export default function App() {
       <ResultScreen
         result={result}
         onRestart={start}
-        onDashboard={() => setScreen("dashboard")}
-        onDark={() => setScreen("dark")}
-      />
-    );
-  }
-
-  if (screen === "dashboard") {
-    return (
-      <MerchantDashboard
-        result={result}
-        onHome={() => setScreen("home")}
-        onDark={() => setScreen("dark")}
-      />
-    );
-  }
-
-  if (screen === "dark") {
-    return (
-      <DarkProduct
-        result={result}
-        onBack={() => setScreen(result ? "result" : "home")}
-        onDashboard={() => setScreen("dashboard")}
       />
     );
   }
@@ -792,7 +564,6 @@ export default function App() {
     <Home
       onStart={start}
       onDemo={showDemoResult}
-      onDashboard={() => setScreen("dashboard")}
     />
   );
 }
