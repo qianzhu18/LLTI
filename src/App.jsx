@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
+import QRCode from "qrcode";
 import {
   ArrowLeft,
   Download,
@@ -23,6 +24,7 @@ const qrSize = qrVersion * 4 + 17;
 const qrDataCodewords = 136;
 const qrEccCodewordsPerBlock = 18;
 const qrBlockCount = 2;
+const DEFAULT_PUBLIC_SITE_URL = "https://llti.qianzhu.online/";
 
 const coachNotes = [
   "先抓你的核心顾虑，后面的推荐会更准。",
@@ -265,7 +267,8 @@ function buildQrPath(matrix, quiet = 4) {
 
 function getSiteUrl(typeCode) {
   const configuredUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim();
-  const baseUrl = configuredUrl || new URL(import.meta.env.BASE_URL || "/", window.location.origin).toString();
+  const runtimeUrl = new URL(import.meta.env.BASE_URL || "/", window.location.origin).toString();
+  const baseUrl = configuredUrl || DEFAULT_PUBLIC_SITE_URL || runtimeUrl;
   const url = new URL(baseUrl, window.location.href);
   url.search = "";
   url.hash = "";
@@ -277,6 +280,68 @@ function getSiteUrl(typeCode) {
   }
   url.search = "";
   return url.toString();
+}
+
+function scoreFromLevel(level) {
+  if (level === "L") return 1.15;
+  if (level === "H") return 2.85;
+  return 2;
+}
+
+function buildSharedResult(typeCode) {
+  const finalType = typeLibrary[typeCode];
+  if (!finalType) return null;
+
+  const pattern = parsePattern(finalType.pattern);
+  const scores = {};
+  const levels = {};
+  const totals = {};
+  const counts = {};
+
+  dimensionOrder.forEach((dim, index) => {
+    const level = pattern[index] || "M";
+    levels[dim] = level;
+    scores[dim] = scoreFromLevel(level);
+    totals[dim] = scores[dim];
+    counts[dim] = 1;
+  });
+
+  return {
+    totals,
+    counts,
+    scores,
+    levels,
+    tags: { scene: "朋友分享" },
+    ranked: [],
+    finalType,
+    mode: "朋友分享给你的人格卡",
+    match: 100,
+    intentScore: 4.2,
+    lead: {
+      type: finalType.code,
+      intent: 4.2,
+      share: scores.social,
+      dark: scores.dark,
+      variety: finalType.variety,
+      scene: "朋友分享",
+    },
+    shared: true,
+  };
+}
+
+function getSharedTypeFromUrl() {
+  if (typeof window === "undefined") return "";
+  const typeCode = new URLSearchParams(window.location.search).get("p")?.trim().toUpperCase();
+  return typeLibrary[typeCode] ? typeCode : "";
+}
+
+function clearSharedTypeFromUrl() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("p") && !url.searchParams.has("from")) return;
+  url.searchParams.delete("p");
+  url.searchParams.delete("from");
+  window.history.replaceState({}, "", url.toString());
 }
 
 function emptyScores() {
@@ -431,13 +496,42 @@ function PersonaArtwork({ type, className = "" }) {
 }
 
 function ShareQrCode({ value }) {
-  const path = useMemo(() => buildQrPath(createQrMatrix(value)), [value]);
+  const fallbackPath = useMemo(() => buildQrPath(createQrMatrix(value)), [value]);
   const viewBoxSize = qrSize + 8;
+  const [qrDataUrl, setQrDataUrl] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    QRCode.toDataURL(value, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      scale: 10,
+      color: {
+        dark: "#141a14",
+        light: "#ffffff",
+      },
+    })
+      .then((dataUrl) => {
+        if (active) setQrDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (active) setQrDataUrl("");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [value]);
+
+  if (qrDataUrl) {
+    return <img src={qrDataUrl} alt="扫码打开榴莲人格测试" />;
+  }
 
   return (
     <svg viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`} role="img" aria-label="扫码打开榴莲人格测试">
       <rect width={viewBoxSize} height={viewBoxSize} fill="#ffffff" />
-      <path d={path} fill="#141a14" shapeRendering="crispEdges" />
+      <path d={fallbackPath} fill="#141a14" shapeRendering="crispEdges" />
     </svg>
   );
 }
@@ -643,6 +737,19 @@ function ResultScreen({ result, onRestart }) {
 
   return (
     <main className="result-grid">
+      <aside className="share-side">
+        <div className="share-side-head">
+          <span>分享卡预览</span>
+          <p>结果一出来先看到卡，二维码也能直接扫码回到网页。</p>
+        </div>
+        <ShareCard result={result} cardRef={cardRef} />
+        {shareImage ? (
+          <a className="share-preview" href={shareImage} target="_blank" rel="noreferrer">
+            查看已生成卡片
+          </a>
+        ) : null}
+      </aside>
+
       <section className="result-main">
         <div className="result-label">{result.mode}</div>
         <div className="result-title-row">
@@ -688,7 +795,7 @@ function ResultScreen({ result, onRestart }) {
           <h3>接下来你可以</h3>
           <div>
             <p>
-              <b>1.</b> 生成分享图，把你的「{type.name}」人格卡发到群里，拉朋友一起测。
+              <b>1.</b> 生成分享图，把你的「{type.name}」人格卡发到群里，拉朋友扫码测同款。
             </p>
             <p>
               <b>2.</b> 按推荐品种去买，{type.variety} 最适合你。
@@ -709,25 +816,25 @@ function ResultScreen({ result, onRestart }) {
         </div>
         {message ? <div className="toast">{message}</div> : null}
       </section>
-
-      <aside className="share-side">
-        <ShareCard result={result} cardRef={cardRef} />
-        {shareImage ? (
-          <a className="share-preview" href={shareImage} target="_blank" rel="noreferrer">
-            查看已生成卡片
-          </a>
-        ) : null}
-      </aside>
     </main>
   );
 }
 
 export default function App() {
-  const [screen, setScreen] = useState("home");
+  const [boot] = useState(() => {
+    const sharedType = getSharedTypeFromUrl();
+    const sharedResult = sharedType ? buildSharedResult(sharedType) : null;
+    return {
+      screen: sharedResult ? "result" : "home",
+      result: sharedResult,
+    };
+  });
+  const [screen, setScreen] = useState(boot.screen);
   const [answers, setAnswers] = useState({});
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(boot.result);
 
   const start = () => {
+    clearSharedTypeFromUrl();
     setAnswers({});
     setResult(null);
     setScreen("test");
