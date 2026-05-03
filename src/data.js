@@ -1,3 +1,5 @@
+import personaImages from "./personaImages.json";
+
 export const dimensionOrder = [
   "sweet",
   "funk",
@@ -324,6 +326,7 @@ export const questions = [
 export const typeLibrary = {
   "GOLD-I": {
     code: "GOLD-I",
+    image: personaImages["GOLD-I"],
     name: "金枕显眼包",
     pattern: "HLLMLHL",
     variety: "泰国金枕",
@@ -338,6 +341,7 @@ export const typeLibrary = {
   },
   "MUSANG-P": {
     code: "MUSANG-P",
+    image: personaImages["MUSANG-P"],
     name: "猫山王贵族",
     pattern: "HHHHMML",
     variety: "猫山王",
@@ -352,6 +356,7 @@ export const typeLibrary = {
   },
   "BLACK-X": {
     code: "BLACK-X",
+    image: personaImages["BLACK-X"],
     name: "黑刺高冷怪",
     pattern: "MHHHHLM",
     variety: "黑刺 / 小众进阶品种",
@@ -366,6 +371,7 @@ export const typeLibrary = {
   },
   "D24-R": {
     code: "D24-R",
+    image: personaImages["D24-R"],
     name: "D24 复古人",
     pattern: "MMHMMLL",
     variety: "D24",
@@ -380,6 +386,7 @@ export const typeLibrary = {
   },
   "FROZEN-C": {
     code: "FROZEN-C",
+    image: personaImages["FROZEN-C"],
     name: "冷冻理智派",
     pattern: "MLLMLLL",
     variety: "冷冻榴莲果肉",
@@ -394,6 +401,7 @@ export const typeLibrary = {
   },
   "GROUP-E": {
     code: "GROUP-E",
+    image: personaImages["GROUP-E"],
     name: "宿舍拼团王",
     pattern: "HMLLMHM",
     variety: "金枕拼团装",
@@ -408,6 +416,7 @@ export const typeLibrary = {
   },
   "LOVE-G": {
     code: "LOVE-G",
+    image: personaImages["LOVE-G"],
     name: "爆浆恋爱脑",
     pattern: "HMLHMHL",
     variety: "金枕礼盒 / 榴莲甜品",
@@ -422,6 +431,7 @@ export const typeLibrary = {
   },
   "VALUE-W": {
     code: "VALUE-W",
+    image: personaImages["VALUE-W"],
     name: "夹生打工人",
     pattern: "MMLLLMM",
     variety: "金枕 / 冷冻果肉",
@@ -436,6 +446,7 @@ export const typeLibrary = {
   },
   "CRACK-M": {
     code: "CRACK-M",
+    image: personaImages["CRACK-M"],
     name: "裂口发疯人",
     pattern: "MHMMLHH",
     hidden: true,
@@ -451,6 +462,7 @@ export const typeLibrary = {
   },
   "ABSTRACT-H": {
     code: "ABSTRACT-H",
+    image: personaImages["ABSTRACT-H"],
     name: "榴莲抽象派",
     pattern: "MMMMMMM",
     fallback: true,

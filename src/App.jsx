@@ -2,11 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import {
   ArrowLeft,
-  ArrowRight,
-  BadgeCheck,
   Download,
   RefreshCcw,
-  Share2,
   Sparkles,
 } from "lucide-react";
 import {
@@ -21,18 +18,11 @@ import "./styles.css";
 
 const levelNum = { L: 1, M: 2, H: 3 };
 const levelName = { L: "低", M: "中", H: "高" };
-
-const homeHooks = [
-  "你吃榴莲的样子，出卖了你的人格。",
-  "30 秒测出你是哪种榴莲人格，拿专属推荐品种。",
-  "测完还有人格卡可以发，今晚就开果。",
-];
-
-const loopFlow = [
-  { title: "测", desc: "10 道趣味题，测出你的榴莲人格类型。" },
-  { title: "看", desc: "拿到专属品种推荐和开果攻略。" },
-  { title: "晒", desc: "生成人格卡，分享给朋友一起玩。" },
-];
+const qrVersion = 6;
+const qrSize = qrVersion * 4 + 17;
+const qrDataCodewords = 136;
+const qrEccCodewordsPerBlock = 18;
+const qrBlockCount = 2;
 
 const coachNotes = [
   "先抓你的核心顾虑，后面的推荐会更准。",
@@ -79,6 +69,214 @@ function getSignalLabel(questionId, optionIndex) {
     tags.trust ||
     option.label
   );
+}
+
+function appendBits(buffer, value, length) {
+  for (let i = length - 1; i >= 0; i -= 1) {
+    buffer.push((value >>> i) & 1);
+  }
+}
+
+function getByteData(text) {
+  return Array.from(new TextEncoder().encode(text));
+}
+
+function reedSolomonMultiply(x, y) {
+  let result = 0;
+  for (let i = 7; i >= 0; i -= 1) {
+    result = (result << 1) ^ ((result >>> 7) * 0x11d);
+    result ^= ((y >>> i) & 1) * x;
+  }
+  return result;
+}
+
+function reedSolomonDivisor(degree) {
+  const result = Array(degree - 1).fill(0).concat(1);
+  let root = 1;
+  for (let i = 0; i < degree; i += 1) {
+    for (let j = 0; j < result.length; j += 1) {
+      result[j] = reedSolomonMultiply(result[j], root);
+      if (j + 1 < result.length) {
+        result[j] ^= result[j + 1];
+      }
+    }
+    root = reedSolomonMultiply(root, 0x02);
+  }
+  return result;
+}
+
+function reedSolomonRemainder(data, divisor) {
+  const result = Array(divisor.length).fill(0);
+  data.forEach((byte) => {
+    const factor = byte ^ result.shift();
+    result.push(0);
+    divisor.forEach((coefficient, index) => {
+      result[index] ^= reedSolomonMultiply(coefficient, factor);
+    });
+  });
+  return result;
+}
+
+function createQrCodewords(text) {
+  const data = getByteData(text);
+  if (data.length > qrDataCodewords - 2) {
+    throw new Error("QR content is too long");
+  }
+
+  const bits = [];
+  appendBits(bits, 0x4, 4);
+  appendBits(bits, data.length, 8);
+  data.forEach((byte) => appendBits(bits, byte, 8));
+
+  const capacityBits = qrDataCodewords * 8;
+  appendBits(bits, 0, Math.min(4, capacityBits - bits.length));
+  while (bits.length % 8 !== 0) {
+    bits.push(0);
+  }
+
+  const dataCodewords = [];
+  for (let i = 0; i < bits.length; i += 8) {
+    dataCodewords.push(parseInt(bits.slice(i, i + 8).join(""), 2));
+  }
+
+  for (let pad = 0xec; dataCodewords.length < qrDataCodewords; pad ^= 0xfd) {
+    dataCodewords.push(pad);
+  }
+
+  const divisor = reedSolomonDivisor(qrEccCodewordsPerBlock);
+  const blockDataLength = qrDataCodewords / qrBlockCount;
+  const blocks = [];
+  for (let i = 0; i < qrBlockCount; i += 1) {
+    const blockData = dataCodewords.slice(i * blockDataLength, (i + 1) * blockDataLength);
+    blocks.push(blockData.concat(reedSolomonRemainder(blockData, divisor)));
+  }
+
+  const codewords = [];
+  for (let i = 0; i < blocks[0].length; i += 1) {
+    blocks.forEach((block) => {
+      codewords.push(block[i]);
+    });
+  }
+  return codewords;
+}
+
+function createEmptyQrGrid() {
+  return Array.from({ length: qrSize }, () => Array(qrSize).fill(false));
+}
+
+function createQrMatrix(value) {
+  const modules = createEmptyQrGrid();
+  const reserved = createEmptyQrGrid();
+
+  const setFunction = (x, y, dark) => {
+    modules[y][x] = dark;
+    reserved[y][x] = true;
+  };
+
+  const drawFinder = (x, y) => {
+    for (let dy = -4; dy <= 4; dy += 1) {
+      for (let dx = -4; dx <= 4; dx += 1) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && xx < qrSize && yy >= 0 && yy < qrSize) {
+          const distance = Math.max(Math.abs(dx), Math.abs(dy));
+          setFunction(xx, yy, distance !== 2 && distance !== 4);
+        }
+      }
+    }
+  };
+
+  const drawAlignment = (x, y) => {
+    for (let dy = -2; dy <= 2; dy += 1) {
+      for (let dx = -2; dx <= 2; dx += 1) {
+        setFunction(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      }
+    }
+  };
+
+  for (let i = 0; i < qrSize; i += 1) {
+    setFunction(6, i, i % 2 === 0);
+    setFunction(i, 6, i % 2 === 0);
+  }
+  drawFinder(3, 3);
+  drawFinder(qrSize - 4, 3);
+  drawFinder(3, qrSize - 4);
+  drawAlignment(6, 34);
+  drawAlignment(34, 6);
+  drawAlignment(34, 34);
+
+  const drawFormatBits = () => {
+    const formatData = (1 << 3) | 0;
+    let remainder = formatData;
+    for (let i = 0; i < 10; i += 1) {
+      remainder = (remainder << 1) ^ ((remainder >>> 9) * 0x537);
+    }
+    const bits = ((formatData << 10) | remainder) ^ 0x5412;
+    const bit = (index) => ((bits >>> index) & 1) === 1;
+
+    for (let i = 0; i <= 5; i += 1) setFunction(8, i, bit(i));
+    setFunction(8, 7, bit(6));
+    setFunction(8, 8, bit(7));
+    setFunction(7, 8, bit(8));
+    for (let i = 9; i < 15; i += 1) setFunction(14 - i, 8, bit(i));
+    for (let i = 0; i < 8; i += 1) setFunction(qrSize - 1 - i, 8, bit(i));
+    for (let i = 8; i < 15; i += 1) setFunction(8, qrSize - 15 + i, bit(i));
+    setFunction(8, qrSize - 8, true);
+  };
+
+  drawFormatBits();
+
+  const codewords = createQrCodewords(value);
+  let bitIndex = 0;
+  for (let right = qrSize - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let vert = 0; vert < qrSize; vert += 1) {
+      for (let j = 0; j < 2; j += 1) {
+        const x = right - j;
+        const upward = ((right + 1) & 2) === 0;
+        const y = upward ? qrSize - 1 - vert : vert;
+        if (!reserved[y][x] && bitIndex < codewords.length * 8) {
+          modules[y][x] = ((codewords[Math.floor(bitIndex / 8)] >>> (7 - (bitIndex % 8))) & 1) === 1;
+          bitIndex += 1;
+        }
+      }
+    }
+  }
+
+  for (let y = 0; y < qrSize; y += 1) {
+    for (let x = 0; x < qrSize; x += 1) {
+      if (!reserved[y][x] && (x + y) % 2 === 0) {
+        modules[y][x] = !modules[y][x];
+      }
+    }
+  }
+  drawFormatBits();
+  return modules;
+}
+
+function buildQrPath(matrix, quiet = 4) {
+  return matrix
+    .flatMap((row, y) =>
+      row.map((dark, x) => (dark ? `M${x + quiet} ${y + quiet}h1v1H${x + quiet}z` : "")),
+    )
+    .filter(Boolean)
+    .join("");
+}
+
+function getSiteUrl(typeCode) {
+  const configuredUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim();
+  const baseUrl = configuredUrl || new URL(import.meta.env.BASE_URL || "/", window.location.origin).toString();
+  const url = new URL(baseUrl, window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("from", "card");
+  url.searchParams.set("p", typeCode);
+
+  if (getByteData(url.toString()).length <= qrDataCodewords - 2) {
+    return url.toString();
+  }
+  url.search = "";
+  return url.toString();
 }
 
 function emptyScores() {
@@ -217,56 +415,62 @@ function DurianGlyph({ type }) {
   );
 }
 
-function Home({ onStart, onDemo }) {
-  const hook = homeHooks[new Date().getDate() % homeHooks.length];
-  const teaserTypes = ["GOLD-I", "GROUP-E", "CRACK-M"].map(
-    (typeCode) => typeLibrary[typeCode],
-  );
+function PersonaArtwork({ type, className = "" }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const image = type?.image;
 
+  if (image?.src && !imageFailed) {
+    return (
+      <div className={`persona-art ${className}`} style={{ "--accent": type.accent }}>
+        <img src={image.src} alt={image.alt || `${type.name}榴莲人格图`} onError={() => setImageFailed(true)} />
+      </div>
+    );
+  }
+
+  return <DurianGlyph type={type} />;
+}
+
+function ShareQrCode({ value }) {
+  const path = useMemo(() => buildQrPath(createQrMatrix(value)), [value]);
+  const viewBoxSize = qrSize + 8;
+
+  return (
+    <svg viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`} role="img" aria-label="扫码打开榴莲人格测试">
+      <rect width={viewBoxSize} height={viewBoxSize} fill="#ffffff" />
+      <path d={path} fill="#141a14" shapeRendering="crispEdges" />
+    </svg>
+  );
+}
+
+function MysteryGlyph() {
+  return (
+    <div className="mystery-glyph">
+      <span>?</span>
+    </div>
+  );
+}
+
+function Home({ onStart }) {
   return (
     <main className="home-grid">
       <section className="hero-panel">
-        <div className="eyebrow">
-          <Sparkles size={16} />
-          榴莲人格测试 · 测完就懂吃
-        </div>
         <h1>测测你的榴莲人格</h1>
-        <p className="hero-copy">
-          10 道题测出你的榴莲口味人格，拿到专属品种推荐，生成人格卡分享给朋友。
-        </p>
-        <p className="hero-hook">{hook}</p>
+        <div className="hero-visual">
+          <MysteryGlyph />
+          <div>
+            <strong>你的榴莲人格是？</strong>
+            <p>10 道题测出你的专属人格</p>
+          </div>
+        </div>
         <div className="hero-actions">
           <Button icon={Sparkles} onClick={onStart}>
             开始测试
           </Button>
-          <Button icon={Share2} variant="ghost" onClick={onDemo}>
-            先看示例结果
-          </Button>
-        </div>
-        <div className="guide-strip">
-          {loopFlow.map((item) => (
-            <div className="guide-step" key={item.title}>
-              <strong>{item.title}</strong>
-              <p>{item.desc}</p>
-            </div>
-          ))}
-        </div>
-        <div className="persona-strip">
-          {teaserTypes.map((type) => (
-            <div className="persona-chip" key={type.code}>
-              <b>{type.name}</b>
-              <span>{type.cardLine}</span>
-            </div>
-          ))}
         </div>
       </section>
 
       <aside className="cover-panel">
         <img src="/assets/generated-durian-card.jpg" alt="你的榴莲人格卡" />
-        <div className="cover-caption">
-          <strong>你的榴莲人格卡</strong>
-          <span>测完就能生成专属人格卡，保存图片发朋友圈，看看朋友们都是什么人格。</span>
-        </div>
       </aside>
     </main>
   );
@@ -274,6 +478,7 @@ function Home({ onStart, onDemo }) {
 
 function TestScreen({ answers, setAnswers, onResult, onHome }) {
   const [index, setIndex] = useState(0);
+  const [advancing, setAdvancing] = useState(false);
   const question = questions[index];
   const selected = answers[question.id];
   const done = Object.keys(answers).length;
@@ -285,14 +490,24 @@ function TestScreen({ answers, setAnswers, onResult, onHome }) {
     .slice(-4);
 
   const choose = (optionIndex) => {
-    setAnswers((prev) => ({ ...prev, [question.id]: optionIndex }));
+    if (advancing) return;
+    const nextAnswers = { ...answers, [question.id]: optionIndex };
+    setAnswers(nextAnswers);
+    setAdvancing(true);
+    window.setTimeout(() => {
+      if (index < questions.length - 1) {
+        setIndex(index + 1);
+        setAdvancing(false);
+      } else {
+        onResult(nextAnswers);
+      }
+    }, 180);
   };
 
-  const goNext = () => {
-    if (index < questions.length - 1) {
-      setIndex(index + 1);
-    } else {
-      onResult();
+  const goBack = () => {
+    if (advancing) return;
+    if (index > 0) {
+      setIndex(index - 1);
     }
   };
 
@@ -327,6 +542,7 @@ function TestScreen({ answers, setAnswers, onResult, onHome }) {
           {question.options.map((option, optionIndex) => (
             <button
               className={`option-row ${selected === optionIndex ? "selected" : ""}`}
+              disabled={advancing}
               key={option.label}
               onClick={() => choose(optionIndex)}
             >
@@ -348,18 +564,10 @@ function TestScreen({ answers, setAnswers, onResult, onHome }) {
       ) : null}
 
       <div className="bottom-nav">
-        <Button
-          icon={ArrowLeft}
-          variant="secondary"
-          disabled={index === 0}
-          onClick={() => setIndex(index - 1)}
-        >
+        <Button icon={ArrowLeft} variant="secondary" disabled={index === 0 || advancing} onClick={goBack}>
           上一题
         </Button>
-        <span>{done} 个信号已记录</span>
-        <Button icon={index === questions.length - 1 ? BadgeCheck : ArrowRight} disabled={selected === undefined} onClick={goNext}>
-          {index === questions.length - 1 ? "查看结果" : "下一题"}
-        </Button>
+        <span>{advancing ? "正在进入下一题" : `${done} 个信号已记录`}</span>
       </div>
     </main>
   );
@@ -367,31 +575,33 @@ function TestScreen({ answers, setAnswers, onResult, onHome }) {
 
 function ShareCard({ result, cardRef }) {
   const type = result.finalType;
+  const shareUrl = getSiteUrl(type.code);
   return (
     <div className="share-card" ref={cardRef} style={{ "--fruit": type.color, "--accent": type.accent }}>
       <div className="share-head">
         <span>榴莲人格</span>
         <b>{type.code}</b>
       </div>
-      <DurianGlyph type={type} />
+      <PersonaArtwork type={type} />
       <h2>{type.name}</h2>
       <p>{type.cardLine}</p>
       <div className="share-reco">
         <span>推荐</span>
         <strong>{type.variety}</strong>
       </div>
-      <div className="mini-radar">
-        {dimensionOrder.slice(0, 5).map((dim) => (
-          <div key={dim}>
-            <span>{dimensions[dim].name.slice(0, 2)}</span>
-            <i style={{ height: `${result.scores[dim] * 26}%` }} />
-          </div>
-        ))}
-      </div>
-      <div className="fake-qr" aria-hidden="true">
-        {Array.from({ length: 36 }).map((_, itemIndex) => (
-          <i key={itemIndex} className={(itemIndex * 7 + type.code.length) % 3 === 0 ? "on" : ""} />
-        ))}
+      <div className="share-bottom">
+        <div className="mini-radar">
+          {dimensionOrder.slice(0, 5).map((dim) => (
+            <div key={dim}>
+              <span>{dimensions[dim].name.slice(0, 2)}</span>
+              <i style={{ height: `${result.scores[dim] * 26}%` }} />
+            </div>
+          ))}
+        </div>
+        <a className="real-qr" href={shareUrl} target="_blank" rel="noreferrer" aria-label="扫码打开榴莲人格测试">
+          <ShareQrCode value={shareUrl} />
+          <span>扫码测</span>
+        </a>
       </div>
     </div>
   );
@@ -401,17 +611,23 @@ function ResultScreen({ result, onRestart }) {
   const cardRef = useRef(null);
   const [shareImage, setShareImage] = useState("");
   const [message, setMessage] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
   const type = result.finalType;
 
   const generateShare = async () => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || isGenerating) return;
+    setIsGenerating(true);
     setMessage("正在生成分享卡...");
     try {
-      const dataUrl = await toPng(cardRef.current, {
+      const renderTask = toPng(cardRef.current, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#fff9db",
       });
+      const timeoutTask = new Promise((_, reject) => {
+        window.setTimeout(() => reject(new Error("share render timeout")), 18000);
+      });
+      const dataUrl = await Promise.race([renderTask, timeoutTask]);
       setShareImage(dataUrl);
       const link = document.createElement("a");
       link.download = `${type.code}-durian-persona.png`;
@@ -420,6 +636,8 @@ function ResultScreen({ result, onRestart }) {
       setMessage("分享卡已生成");
     } catch (error) {
       setMessage("分享卡生成失败，请稍后重试");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -482,8 +700,8 @@ function ResultScreen({ result, onRestart }) {
         </section>
 
         <div className="result-actions">
-          <Button icon={Download} onClick={generateShare}>
-            生成分享图
+          <Button icon={Download} disabled={isGenerating} onClick={generateShare}>
+            {isGenerating ? "生成中..." : "生成分享图"}
           </Button>
           <Button icon={RefreshCcw} variant="ghost" onClick={onRestart}>
             重测
@@ -515,27 +733,8 @@ export default function App() {
     setScreen("test");
   };
 
-  const showResult = () => {
-    const computed = computeResult(answers);
-    setResult(computed);
-    setScreen("result");
-  };
-
-  const showDemoResult = () => {
-    const demoAnswers = {
-      fear: 0,
-      smell: 1,
-      taste: 0,
-      budget: 1,
-      scene: 0,
-      dark: 1,
-      decision: 1,
-      share: 2,
-      afterSale: 0,
-      buyNow: 2,
-    };
-    const computed = computeResult(demoAnswers);
-    setAnswers(demoAnswers);
+  const showResult = (finalAnswers = answers) => {
+    const computed = computeResult(finalAnswers);
     setResult(computed);
     setScreen("result");
   };
@@ -563,7 +762,6 @@ export default function App() {
   return (
     <Home
       onStart={start}
-      onDemo={showDemoResult}
     />
   );
 }
